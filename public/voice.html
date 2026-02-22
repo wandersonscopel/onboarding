@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fleway — Voice</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#050507; --surface:#0e0e12; --surface-2:#161619; --border:#1f1f25; --text:#e8e8ec; --text-dim:#6a6a75; --text-ghost:#2a2a35; --accent:#e8e8ec; --accent-glow:#e8e8ec20; --danger:#ef4444; --success:#22c55e; }
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column}
+    .screen{display:flex;align-items:center;justify-content:center;flex:1;padding:24px}
+    .login-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:48px 40px;max-width:400px;width:100%;text-align:center}
+    .logo-mark{display:inline-flex;align-items:center;justify-content:center;margin-bottom:20px}
+    .login-card h1{font-size:32px;font-weight:600;letter-spacing:-0.04em;margin-bottom:6px}
+    .login-card h1 em{font-style:normal;color:var(--accent)}
+    .login-card .subtitle{color:var(--text-dim);font-size:14px;line-height:1.6;margin-bottom:32px}
+    .login-card input{width:100%;font-family:'DM Sans',sans-serif;font-size:15px;padding:14px 18px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);margin-bottom:14px;transition:border-color .2s}
+    .login-card input:focus{outline:none;border-color:var(--accent)}
+    .login-card input::placeholder{color:var(--text-dim)}
+    .btn-primary{width:100%;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;padding:14px;border-radius:12px;border:none;background:var(--accent);color:#000;cursor:pointer;transition:filter .2s}
+    .btn-primary:hover{filter:brightness(1.1)}
+    .btn-primary:disabled{opacity:.4;cursor:not-allowed}
+    .resume-box{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:18px;margin-top:18px;text-align:left}
+    .resume-box p{font-size:13px;color:var(--text-dim);margin-bottom:12px}
+    .resume-box .btns{display:flex;gap:8px}
+    .resume-box .btn-sm{flex:1;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;padding:10px;border-radius:8px;border:none;cursor:pointer}
+    .btn-resume{background:var(--accent);color:#000}
+    .btn-new{background:var(--surface);color:var(--text);border:1px solid var(--border)!important}
+    .voice-screen{display:none;flex-direction:column;height:100vh;height:100dvh;position:relative;overflow:hidden}
+    .voice-header{position:absolute;top:0;left:0;right:0;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;z-index:10;background:linear-gradient(var(--bg),transparent)}
+    .voice-header .brand{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+    .voice-header .brand .dot{width:22px;height:22px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#000}
+    .voice-header .brand em{font-style:normal;color:var(--accent)}
+    .voice-header .meta{display:flex;align-items:center;gap:10px}
+    .pill{font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 10px;border-radius:16px;background:var(--surface-2);color:var(--text-dim);border:1px solid var(--border)}
+    .btn-end{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;transition:all .2s}
+    .btn-end:hover{color:var(--danger);border-color:var(--danger)}
+    .lyrics-area{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:80px 32px 20px;overflow:hidden;position:relative}
+    .lyrics-container{width:100%;max-width:640px;text-align:center;min-height:200px;display:flex;flex-direction:column;justify-content:center;align-items:center}
+    .karaoke-text{font-size:28px;font-weight:500;line-height:1.55;text-align:center;max-width:600px}
+    .karaoke-text .word{display:inline;color:var(--text-ghost);transition:color .12s ease}
+    .karaoke-text .word.spoken{color:var(--text)}
+    .karaoke-text .word.active{color:var(--accent)}
+    .user-text{font-size:20px;font-weight:400;color:var(--text-dim);text-align:center;max-width:600px;opacity:0;transform:translateY(10px);animation:fadeUp .4s ease forwards;margin-bottom:16px}
+    @keyframes fadeUp{to{opacity:.5;transform:translateY(0)}}
+    .history-section{position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;align-items:center;padding-top:70px;max-height:40%;overflow:hidden;mask-image:linear-gradient(transparent 0%,rgba(0,0,0,.3) 40%,transparent 100%);-webkit-mask-image:linear-gradient(transparent 0%,rgba(0,0,0,.3) 40%,transparent 100%);pointer-events:none}
+    .history-msg{font-size:14px;color:var(--text-dim);opacity:.25;text-align:center;max-width:500px;margin-bottom:10px;line-height:1.4}
+    .history-msg.ai{color:var(--text);opacity:.15}
+    .orb-zone{display:flex;flex-direction:column;align-items:center;padding:0 24px 36px;flex-shrink:0}
+    .status-text{font-size:13px;color:var(--text-dim);margin-bottom:18px;min-height:20px;text-align:center;transition:all .3s}
+    .status-text.recording{color:var(--danger)}
+    .status-text.thinking{color:var(--accent)}
+    .status-text.speaking{color:var(--accent)}
+    .orb-container{position:relative;width:100px;height:100px;margin-bottom:20px}
+    .orb-bg{position:absolute;inset:-16px;border-radius:50%;background:radial-gradient(circle,var(--accent-glow) 0%,transparent 70%);opacity:0;transition:opacity .5s}
+    body.state-recording .orb-bg{opacity:1}
+    body.state-speaking .orb-bg{opacity:.5}
+    .orb{width:100px;height:100px;border-radius:50%;background:var(--surface);border:2px solid var(--border);cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;transition:all .3s;user-select:none}
+    .orb:active{transform:scale(.93)}
+    body.state-idle .orb:hover{border-color:var(--accent);box-shadow:0 0 30px var(--accent-glow)}
+    body.state-recording .orb{border-color:var(--danger);background:var(--danger);box-shadow:0 0 40px rgba(239,68,68,.3);animation:orbPulse 1.6s infinite}
+    @keyframes orbPulse{0%,100%{box-shadow:0 0 20px rgba(239,68,68,.2)}50%{box-shadow:0 0 50px rgba(239,68,68,.4)}}
+    body.state-thinking .orb{border-color:var(--accent);animation:orbThink 2s infinite}
+    @keyframes orbThink{0%,100%{box-shadow:0 0 15px var(--accent-glow)}50%{box-shadow:0 0 35px var(--accent-glow)}}
+    body.state-speaking .orb{border-color:var(--accent);box-shadow:0 0 25px var(--accent-glow)}
+    .orb-icon{transition:all .3s}
+    .orb-icon svg{display:block}
+    .wave-bars{display:none;gap:3px;align-items:center;height:36px}
+    body.state-speaking .wave-bars,body.state-recording .wave-bars,body.vad-active.state-idle .wave-bars{display:flex}
+    body.state-speaking .orb-icon,body.state-recording .orb-icon,body.vad-active.state-idle .orb-icon{display:none}
+    .wave-bars span{width:4px;background:var(--accent);border-radius:2px;transition:height .1s}
+    .wave-bars span:nth-child(1){height:6px}.wave-bars span:nth-child(2){height:10px}.wave-bars span:nth-child(3){height:16px}.wave-bars span:nth-child(4){height:10px}.wave-bars span:nth-child(5){height:6px}
+    body.state-recording .wave-bars span{background:var(--danger)}
+    body.vad-active.state-idle .wave-bars span{background:var(--success)}
+    .think-dots{display:none;gap:5px}
+    body.state-thinking .think-dots{display:flex}
+    body.state-thinking .orb-icon{display:none}
+    body.state-thinking .wave-bars{display:none}
+    .think-dots span{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:thinkBounce 1.4s infinite}
+    .think-dots span:nth-child(2){animation-delay:.2s}.think-dots span:nth-child(3){animation-delay:.4s}
+    @keyframes thinkBounce{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
+    .bottom-actions{display:flex;gap:14px;align-items:center}
+    .bottom-btn{font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:10px 18px;border-radius:24px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-dim);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px}
+    .bottom-btn:hover{border-color:var(--accent);color:var(--text)}
+    .bottom-btn.active{border-color:var(--accent);color:var(--accent)}
+    .bottom-btn svg{width:16px;height:16px}
+    .finished-overlay{display:none;position:fixed;inset:0;background:var(--bg);z-index:100;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center}
+    .finished-overlay.show{display:flex;animation:fadeUp .5s ease}
+    .finished-overlay .check{width:64px;height:64px;border-radius:50%;background:var(--success);display:flex;align-items:center;justify-content:center;margin-bottom:24px}
+    .finished-overlay h2{font-size:22px;font-weight:600;margin-bottom:8px}
+    .finished-overlay p{color:var(--text-dim);font-size:14px;margin-bottom:28px}
+    .finished-overlay a{color:var(--accent);text-decoration:none;font-weight:600;font-size:16px}
+    .keyboard-input{display:none;position:fixed;bottom:0;left:0;right:0;padding:14px 20px 24px;background:var(--surface);border-top:1px solid var(--border);z-index:50}
+    .keyboard-input.show{display:block}
+    .keyboard-input .ki-wrap{display:flex;gap:8px;max-width:600px;margin:0 auto}
+    .keyboard-input textarea{flex:1;font-family:'DM Sans',sans-serif;font-size:15px;padding:12px 16px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);resize:none;min-height:46px;max-height:100px;line-height:1.4}
+    .keyboard-input textarea:focus{outline:none;border-color:var(--accent)}
+    .keyboard-input textarea::placeholder{color:var(--text-dim)}
+    .keyboard-input .ki-send{width:46px;height:46px;border-radius:12px;border:none;background:var(--accent);color:#000;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .hidden{display:none!important}
+    @media(max-width:640px){.login-card{padding:36px 24px}.karaoke-text{font-size:22px}.lyrics-area{padding:70px 20px 10px}}
+  </style>
+</head>
+<body class="state-idle">
+
+  <div id="loginScreen" class="screen">
+    <div class="login-card">
+      <div class="logo-mark" style="background:transparent;width:auto;height:auto"><svg width="48" height="42" viewBox="0 0 52 44" fill="none"><path d="M0 22L20 8L26 22L20 36Z" fill="#e8e8ec"/><path d="M26 22L20 8L52 4Z" fill="#e8e8ec"/><path d="M26 22L20 36L44 40Z" fill="#e8e8ec" opacity="0.45"/></svg></div>
+      <h1>fleway</h1>
+      <p class="subtitle">Entrevista por voz.<br>Fale naturalmente — leva ~15 minutos.</p>
+      <input type="email" id="emailInput" placeholder="Seu email" autocomplete="email">
+      <button class="btn-primary" id="btnLogin">Iniciar</button>
+      <div class="resume-box hidden" id="resumeBox">
+        <p>Sessão em andamento (<span id="resumeTurns">0</span> turnos). Continuar?</p>
+        <div class="btns">
+          <button class="btn-sm btn-resume" id="btnResume">Continuar</button>
+          <button class="btn-sm btn-new" id="btnNew">Recomeçar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="voice-screen" id="voiceScreen">
+    <div class="voice-header">
+      <div class="brand"><svg width="22" height="19" viewBox="0 0 52 44" fill="none"><path d="M0 22L20 8L26 22L20 36Z" fill="#e8e8ec"/><path d="M26 22L20 8L52 4Z" fill="#e8e8ec"/><path d="M26 22L20 36L44 40Z" fill="#e8e8ec" opacity="0.45"/></svg> fleway</div>
+      <div class="meta">
+        <span class="pill" id="turnPill">Turno 0</span>
+        <button class="btn-end" id="btnEndSession">Encerrar</button>
+      </div>
+    </div>
+    <div class="lyrics-area">
+      <div class="history-section" id="historySection"></div>
+      <div class="lyrics-container" id="lyricsContainer"></div>
+    </div>
+    <div class="orb-zone">
+      <div class="status-text" id="statusText">Toque para falar</div>
+      <div class="orb-container">
+        <div class="orb-bg"></div>
+        <div class="orb" id="orbBtn">
+          <div class="orb-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></div>
+          <div class="wave-bars"><span></span><span></span><span></span><span></span><span></span></div>
+          <div class="think-dots"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+      <div class="bottom-actions">
+        <button class="bottom-btn" id="btnKeyboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6" y2="8"/><line x1="10" y1="8" x2="10" y2="8"/><line x1="14" y1="8" x2="14" y2="8"/><line x1="18" y1="8" x2="18" y2="8"/><line x1="8" y1="12" x2="8" y2="12"/><line x1="12" y1="12" x2="12" y2="12"/><line x1="16" y1="12" x2="16" y2="12"/><line x1="7" y1="16" x2="17" y2="16"/></svg>Teclado</button>
+        <button class="bottom-btn" id="btnMute"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>Áudio on</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="finished-overlay" id="finishedOverlay">
+    <div class="check"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+    <h2>Perfil salvo</h2>
+    <p>Sua entrevista foi concluída com sucesso.</p>
+    <a id="resultLink" href="#">→ Ver resultado completo</a>
+  </div>
+
+  <div class="keyboard-input" id="keyboardPanel">
+    <div class="ki-wrap">
+      <textarea id="kiText" placeholder="Digite sua resposta..." rows="1"></textarea>
+      <button class="ki-send" id="kiSend"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+    </div>
+  </div>
+
+  <audio id="audioPlayer" preload="none"></audio>
+
+  <script>
+    let creatorId=null,sessionId=null,state='idle';
+    let mediaRecorder=null,audioChunks=[];
+    let audioEnabled=true,keyboardMode=false,karaokeTimer=null;
+    let hist=[];
+    let abortController=null; // to cancel SSE on interrupt
+
+    // Audio queue for sequential chunk playback
+    let audioQueue=[];
+    let isPlaying=false;
+
+    const $=id=>document.getElementById(id);
+    const LC=$('lyricsContainer'),HS=$('historySection'),AP=$('audioPlayer');
+
+    function setState(s){
+      state=s;document.body.className=`state-${s}`;
+      const m={idle:'Toque para falar',recording:'● Gravando...',thinking:'Pensando...',speaking:'Falando...'};
+      $('statusText').textContent=m[s]||'';$('statusText').className=`status-text ${s}`;
+    }
+
+    // ─── Login ───────────────────────────────────────────────
+    $('btnLogin').addEventListener('click',doLogin);
+    $('emailInput').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+
+    async function doLogin(){
+      const email=$('emailInput').value.trim();if(!email)return;
+      $('btnLogin').disabled=true;$('btnLogin').textContent='Conectando...';
+      try{
+        const r=await api('/api/auth',{email});creatorId=r.creator_id;
+        if(r.has_active_session){$('resumeTurns').textContent=r.turn_count;$('resumeBox').classList.remove('hidden');$('btnResume').onclick=()=>startSession(r.session_id,true);$('btnNew').onclick=async()=>{await api('/api/reset',{session_id:r.session_id});startSession(null,false)};}
+        else startSession(null,false);
+      }catch(e){alert('Erro: '+e.message)}
+      $('btnLogin').disabled=false;$('btnLogin').textContent='Iniciar';
+    }
+
+    async function startSession(existingId,resume){
+      $('loginScreen').style.display='none';$('voiceScreen').style.display='flex';
+      
+      // Unlock audio on Safari — resume AudioContext in user gesture chain
+      try {
+        const unlockCtx = new (window.AudioContext || window.webkitAudioContext)();
+        await unlockCtx.resume();
+        // Also touch the Audio element to allow future play()
+        AP.muted = true;
+        AP.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+        const p = AP.play();
+        if(p) await p.catch(()=>{});
+        AP.pause(); AP.muted = false;
+        unlockCtx.close();
+        console.log('🔊 Audio unlocked');
+      } catch(e) { console.log('Audio unlock note:', e.message); }
+      
+      setState('thinking');showThinking();
+      try{
+        const r=await api('/api/start',{creator_id:creatorId,session_id:existingId,resume});
+        sessionId=r.session_id;
+        if(r.resumed&&r.messages){
+          for(const m of r.messages)hist.push({role:m.role==='assistant'?'ai':'user',text:m.content});
+          const lastAi=hist.filter(m=>m.role==='ai').pop();
+          renderHist();if(lastAi)showComplete(lastAi.text);
+          $('turnPill').textContent=`Turno ${r.turn}`;setState('idle');
+        }else if(r.greeting){
+          hist.push({role:'ai',text:r.greeting});$('turnPill').textContent=`Turno ${r.turn}`;
+          try{
+            if(audioEnabled)await speakKaraoke(r.greeting);
+            else showComplete(r.greeting);
+          }catch(e2){
+            console.warn('Greeting TTS failed:',e2);
+            showComplete(r.greeting);
+          }
+          setState('idle');
+        }else{
+          setState('idle');
+        }
+        // Always start VAD after session init
+        startVAD();
+      }catch(e){showComplete('Erro ao iniciar: '+e.message);setState('idle');}
+    }
+
+    // ─── Orb ─────────────────────────────────────────────────
+    $('orbBtn').addEventListener('click',handleOrb);
+    $('orbBtn').addEventListener('touchend',e=>{e.preventDefault();handleOrb()});
+
+    function handleOrb(){
+      if(state==='idle' && !vadActive) startVAD();
+      else if(state==='recording') forceStopAndSend();
+      else if(state==='speaking') stopSpeak();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // ██ VAD (Voice Activity Detection) — mic aberto ██
+    // ═══════════════════════════════════════════════════════════
+    let vadActive = false;
+    let vadStream = null;
+    let vadAnalyser = null;
+    let vadCtx = null;
+    let vadMediaRecorder = null;
+    let vadChunks = [];
+    let isSpeaking = false;
+    let silenceStart = 0;
+    let speechStart = 0;
+    const SILENCE_THRESHOLD = 0.015; // RMS level below this = silence
+    const SILENCE_DURATION = 1500;   // ms of silence to trigger send
+    const MIN_SPEECH_MS = 400;       // minimum speech to consider valid
+    let vadRaf = null;
+
+    async function startVAD() {
+      try {
+        vadStream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        });
+        
+        vadCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = vadCtx.createMediaStreamSource(vadStream);
+        vadAnalyser = vadCtx.createAnalyser();
+        vadAnalyser.fftSize = 2048;
+        vadAnalyser.smoothingTimeConstant = 0.3;
+        source.connect(vadAnalyser);
+        
+        vadActive = true;
+        isSpeaking = false;
+        silenceStart = 0;
+        document.body.classList.add('vad-active');
+        setState('idle');
+        $('statusText').textContent = 'Pode falar — mic aberto';
+        $('statusText').className = 'status-text';
+        
+        // Start volume monitoring
+        monitorVAD();
+        console.log('🎤 VAD active — mic open');
+      } catch(e) {
+        showComplete('Sem acesso ao microfone.');
+        setState('idle');
+      }
+    }
+
+    function monitorVAD() {
+      if (!vadActive || !vadAnalyser) return;
+      
+      const data = new Float32Array(vadAnalyser.fftSize);
+      vadAnalyser.getFloatTimeDomainData(data);
+      
+      // Calculate RMS
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
+      const rms = Math.sqrt(sum / data.length);
+      
+      // Update wave visualization
+      updateWaveViz(rms);
+      
+      const now = Date.now();
+      
+      if (rms > SILENCE_THRESHOLD) {
+        // Sound detected
+        if (!isSpeaking) {
+          // Speech started!
+          isSpeaking = true;
+          speechStart = now;
+          startRecording();
+          setState('recording');
+          $('statusText').textContent = 'Ouvindo...';
+          $('statusText').className = 'status-text recording';
+        }
+        silenceStart = 0; // reset silence counter
+      } else {
+        // Silence
+        if (isSpeaking) {
+          if (silenceStart === 0) {
+            silenceStart = now;
+          } else if (now - silenceStart > SILENCE_DURATION) {
+            // Enough silence after speech — send!
+            const speechDuration = now - speechStart;
+            if (speechDuration > MIN_SPEECH_MS) {
+              console.log(`🎙️ Speech ended after ${speechDuration}ms + ${SILENCE_DURATION}ms silence`);
+              isSpeaking = false;
+              silenceStart = 0;
+              stopRecordingAndSend();
+              vadRaf = requestAnimationFrame(() => monitorVAD());
+              return;
+            } else {
+              // Too short, discard
+              isSpeaking = false;
+              silenceStart = 0;
+              cancelRecording();
+              setState('idle');
+              $('statusText').textContent = 'Pode falar — mic aberto';
+              $('statusText').className = 'status-text';
+            }
+          }
+        }
+      }
+      
+      vadRaf = requestAnimationFrame(() => monitorVAD());
+    }
+
+    function startRecording() {
+      if (vadMediaRecorder?.state === 'recording') return;
+      const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+      vadMediaRecorder = new MediaRecorder(vadStream, { mimeType: mime });
+      vadChunks = [];
+      vadMediaRecorder.ondataavailable = e => { if (e.data.size > 0) vadChunks.push(e.data); };
+      vadMediaRecorder.start(250);
+    }
+
+    function stopRecordingAndSend() {
+      if (!vadMediaRecorder || vadMediaRecorder.state === 'inactive') return;
+      vadMediaRecorder.onstop = () => {
+        const mime = vadMediaRecorder.mimeType;
+        const blob = new Blob(vadChunks, { type: mime });
+        vadChunks = [];
+        sendVoiceStream(blob);
+      };
+      vadMediaRecorder.stop();
+    }
+
+    function cancelRecording() {
+      if (vadMediaRecorder && vadMediaRecorder.state !== 'inactive') {
+        vadMediaRecorder.onstop = () => {}; // noop
+        vadMediaRecorder.stop();
+      }
+      vadChunks = [];
+    }
+
+    function forceStopAndSend() {
+      // Manual tap during recording — force send now
+      isSpeaking = false;
+      silenceStart = 0;
+      stopRecordingAndSend();
+    }
+
+    function stopVAD() {
+      vadActive = false;
+      document.body.classList.remove('vad-active');
+      if (vadRaf) { cancelAnimationFrame(vadRaf); vadRaf = null; }
+      if (vadStream) { vadStream.getTracks().forEach(t => t.stop()); vadStream = null; }
+      if (vadCtx) { vadCtx.close(); vadCtx = null; }
+      cancelRecording();
+    }
+
+    // Wave visualization for VAD
+    function updateWaveViz(rms) {
+      const bars = document.querySelectorAll('.wave-bars span');
+      if (!bars.length) return;
+      const level = Math.min(rms * 12, 1);
+      bars.forEach((bar, i) => {
+        const offset = Math.sin(Date.now() / 180 + i * 0.8) * 0.3 + 0.7;
+        bar.style.height = Math.max(3, level * 30 * offset) + 'px';
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // ██ SSE VOICE STREAM — The main magic ██
+    // ═══════════════════════════════════════════════════════════
+    async function sendVoiceStream(blob){
+      setState('thinking');showThinking();
+      audioQueue=[];isPlaying=false;
+      // Pause VAD monitoring while processing
+      if (vadRaf) { cancelAnimationFrame(vadRaf); vadRaf = null; }
+
+      const fd=new FormData();
+      fd.append('audio',blob,'rec.webm');
+      fd.append('session_id',sessionId);
+
+      let fullText='';
+      let gotFirstAudio=false;
+
+      try{
+        const response=await fetch('/api/voice-stream',{method:'POST',body:fd});
+        const reader=response.body.getReader();
+        const decoder=new TextDecoder();
+        let buffer='';
+        let eventType=null;
+
+        while(true){
+          const{done,value}=await reader.read();
+          if(done)break;
+          buffer+=decoder.decode(value,{stream:true});
+          const lines=buffer.split('\n');
+          buffer=lines.pop();
+
+          for(const line of lines){
+            if(line.startsWith('event: ')){eventType=line.substring(7);continue;}
+            if(!line.startsWith('data: ')||!eventType)continue;
+
+            try{
+              const data=JSON.parse(line.substring(6));
+
+              switch(eventType){
+                case 'transcription':
+                  // Show what user said
+                  hist.push({role:'user',text:data.text});
+                  showUser(data.text);
+                  renderHist();
+                  break;
+
+                case 'llm_delta':
+                  // Stream text karaoke-style — show words appearing
+                  fullText+=data.delta;
+                  showStreaming(fullText);
+                  break;
+
+                case 'llm_done':
+                  $('turnPill').textContent=`Turno ${data.turn||0}`;
+                  hist.push({role:'ai',text:data.text});
+                  renderHist();
+                  if(data.finished){stopVAD();showFinished();return;}
+                  // If no audio, finalize text display and resume VAD
+                  if(!audioEnabled){
+                    showComplete(data.text);setState('idle');
+                    if(vadActive){isSpeaking=false;silenceStart=0;$('statusText').textContent='Pode falar — mic aberto';monitorVAD();}
+                  }
+                  break;
+
+                case 'tts_chunk':
+                  // Queue audio chunk for sequential playback
+                  if(audioEnabled){
+                    audioQueue.push({audio:data.audio,text:data.text,index:data.index,word_timings:data.word_timings||null});
+                    if(!gotFirstAudio){
+                      gotFirstAudio=true;
+                      setState('speaking');
+                      resetKaraokeState();
+                      playNextChunk();
+                    }
+                  }
+                  break;
+
+                case 'tts_error':
+                  console.warn('TTS chunk error:',data.error);
+                  break;
+
+                case 'done':
+                  if(data.finished){showFinished();return;}
+                  // If no audio was received, go idle
+                  if(!gotFirstAudio&&!audioEnabled){setState('idle');}
+                  // If audio playing, it'll go idle when queue empties
+                  break;
+
+                case 'error':
+                  showComplete(data.error||'Erro');setState('idle');
+                  break;
+              }
+            }catch(e){}
+            eventType=null;
+          }
+        }
+
+        // If audio enabled but no chunks came (TTS failed), show text and idle
+        if(audioEnabled&&!gotFirstAudio&&fullText){
+          showComplete(fullText);setState('idle');
+          if(vadActive){isSpeaking=false;silenceStart=0;$('statusText').textContent='Pode falar — mic aberto';monitorVAD();}
+        }
+
+      }catch(e){
+        console.error('Stream error:',e);
+        showComplete(fullText||'Erro. Tente novamente.');setState('idle');
+        if(vadActive){isSpeaking=false;silenceStart=0;monitorVAD();}
+      }
+    }
+
+    // ─── Audio Queue Player ──────────────────────────────────
+    function playNextChunk(){
+      if(audioQueue.length===0){
+        // All chunks played — reactivate VAD listening
+        isPlaying=false;
+        // Show final complete text
+        if(spokenChunksHtml){
+          LC.innerHTML=`<div class="karaoke-text" style="opacity:.8">${spokenChunksHtml}</div>`;
+        }
+        setState('idle');
+        if (vadActive) {
+          isSpeaking = false;
+          silenceStart = 0;
+          $('statusText').textContent = 'Pode falar — mic aberto';
+          $('statusText').className = 'status-text';
+          monitorVAD();
+        }
+        return;
+      }
+      if(state!=='speaking')return;
+
+      isPlaying=true;
+      const chunk=audioQueue.shift();
+
+      // Render this chunk's words
+      setupKaraokeForChunk(chunk);
+
+      const bin=atob(chunk.audio);
+      const bytes=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+      const blob=new Blob([bytes],{type:'audio/mpeg'});
+      const url=URL.createObjectURL(blob);
+
+      AP.src=url;
+      AP.onloadedmetadata=()=>{
+        startChunkKaraoke(chunk, AP.duration*1000);
+      };
+      AP.onended=()=>{
+        URL.revokeObjectURL(url);
+        finishChunkKaraoke(document.querySelectorAll('#activeChunk .word'));
+        playNextChunk();
+      };
+      AP.onerror=()=>{
+        URL.revokeObjectURL(url);
+        finishChunkKaraoke(document.querySelectorAll('#activeChunk .word'));
+        playNextChunk();
+      };
+      AP.play().catch(()=>{finishChunkKaraoke(null);playNextChunk();});
+    }
+
+    // ─── Karaoke Engine v4 (per-chunk rendering) ───────────
+    // Cada chunk renderiza suas palavras direto do word_timings do ElevenLabs.
+    let spokenChunksHtml=''; // acumula chunks já falados
+
+    function setupKaraokeForChunk(chunk){
+      // Mostra chunks já falados (dim) + palavras do chunk atual (ghost)
+      let wordsHtml='';
+      if(chunk.word_timings && chunk.word_timings.length>0){
+        // Usar palavras reais do ElevenLabs
+        wordsHtml=chunk.word_timings.map((wt,i)=>
+          `<span class="word" data-i="${i}">${esc(wt.word)}</span>`
+        ).join(' ');
+      } else {
+        // Fallback: palavras do texto do chunk
+        const words=chunk.text.trim().split(/\s+/);
+        wordsHtml=words.map((w,i)=>
+          `<span class="word" data-i="${i}">${esc(w)}</span>`
+        ).join(' ');
+      }
+      LC.innerHTML=
+        (spokenChunksHtml?`<div class="history-section" style="position:relative;max-height:none;mask-image:none;-webkit-mask-image:none;pointer-events:auto;padding-top:0;opacity:.35">${spokenChunksHtml}</div>`:'')+
+        `<div class="karaoke-text" id="activeChunk">${wordsHtml}</div>`;
+    }
+
+    function startChunkKaraoke(chunk, durationMs){
+      if(karaokeTimer){cancelAnimationFrame(karaokeTimer);karaokeTimer=null;}
+      
+      const wordEls=Array.from(document.querySelectorAll('#activeChunk .word'));
+      if(!wordEls.length)return;
+      
+      let timings=[];
+      
+      if(chunk.word_timings && chunk.word_timings.length>0){
+        // Real ElevenLabs timings (seconds → ms)
+        timings=chunk.word_timings.map(wt=>({s:wt.start*1000, e:wt.end*1000}));
+      } else {
+        // Proportional fallback
+        const totalC=wordEls.reduce((s,el)=>s+Math.max(el.textContent.length,2),0);
+        const usable=durationMs-200;
+        let cum=100;
+        for(const el of wordEls){
+          const dur=(Math.max(el.textContent.length,2)/totalC)*usable;
+          timings.push({s:cum,e:cum+dur});
+          cum+=dur;
+        }
+      }
+      
+      const startTime=performance.now();
+      let lastIdx=-1;
+      
+      function tick(){
+        if(state!=='speaking'){finishChunkKaraoke(wordEls);return;}
+        const elapsed=performance.now()-startTime;
+        
+        for(let i=0;i<timings.length&&i<wordEls.length;i++){
+          if(elapsed>=timings[i].s && i>lastIdx){
+            // Mark previous words as spoken
+            for(let j=0;j<=lastIdx;j++){
+              wordEls[j].classList.add('spoken');
+              wordEls[j].classList.remove('active');
+            }
+            wordEls[i].classList.add('active');
+            lastIdx=i;
+          }
+        }
+        
+        const lastEnd=timings.length>0?timings[timings.length-1].e:durationMs;
+        if(elapsed<lastEnd+300){
+          karaokeTimer=requestAnimationFrame(tick);
+        } else {
+          finishChunkKaraoke(wordEls);
+        }
+      }
+      karaokeTimer=requestAnimationFrame(tick);
+    }
+
+    function finishChunkKaraoke(wordEls){
+      if(karaokeTimer){cancelAnimationFrame(karaokeTimer);karaokeTimer=null;}
+      if(wordEls){
+        wordEls.forEach(el=>{el.classList.add('spoken');el.classList.remove('active');});
+      }
+      // Salva o texto deste chunk como "já falado"
+      const active=document.getElementById('activeChunk');
+      if(active){
+        spokenChunksHtml+=`<div style="text-align:center;margin-bottom:4px;font-size:14px">${active.textContent}</div>`;
+      }
+    }
+
+    function stopKaraoke(){
+      if(karaokeTimer){cancelAnimationFrame(karaokeTimer);karaokeTimer=null;}
+      const wordEls=document.querySelectorAll('#activeChunk .word');
+      wordEls.forEach(e=>{e.classList.add('spoken');e.classList.remove('active')});
+    }
+
+    function resetKaraokeState(){
+      spokenChunksHtml='';
+    }
+
+    // ─── Display helpers ─────────────────────────────────────
+    function showUser(text){LC.innerHTML=`<div class="user-text">"${esc(text)}"</div>`;}
+    function showThinking(){LC.innerHTML='<div class="karaoke-text" style="color:var(--text-dim);opacity:.5;font-size:32px">...</div>';}
+    function showComplete(text){
+      const words=text.split(/(\s+)/);let h='<div class="karaoke-text">';
+      for(const w of words){if(w.trim())h+=`<span class="word spoken">${esc(w)}</span>`;else h+=w;}
+      h+='</div>';LC.innerHTML=h;
+    }
+    function showStreaming(text){
+      // Show text appearing word by word (before audio starts)
+      if(state==='speaking')return; // don't overwrite karaoke during playback
+      const parts=text.split(/(\s+)/);
+      let h='<div class="karaoke-text">';
+      for(const p of parts){
+        if(p.trim())h+=`<span class="word" style="color:var(--text-dim)">${esc(p)}</span>`;
+        else h+=p;
+      }
+      h+='</div>';LC.innerHTML=h;
+    }
+
+    // ─── Stop / Interrupt ────────────────────────────────────
+    function stopSpeak(){
+      AP.pause();AP.currentTime=0;
+      audioQueue=[];isPlaying=false;
+      stopKaraoke();setState('idle');
+    }
+
+    // ─── Keyboard ────────────────────────────────────────────
+    $('btnKeyboard').addEventListener('click',()=>{keyboardMode=!keyboardMode;$('keyboardPanel').classList.toggle('show',keyboardMode);$('btnKeyboard').classList.toggle('active',keyboardMode);if(keyboardMode)$('kiText').focus()});
+    $('kiSend').addEventListener('click',sendKB);
+    $('kiText').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendKB()}});
+    $('kiText').addEventListener('input',()=>{const t=$('kiText');t.style.height='auto';t.style.height=Math.min(t.scrollHeight,100)+'px'});
+
+    async function sendKB(){
+      const t=$('kiText').value.trim();if(!t||state==='thinking'||state==='speaking')return;
+      $('kiText').value='';$('kiText').style.height='auto';
+      hist.push({role:'user',text:t});showUser(t);renderHist();await sleep(400);
+      setState('thinking');showThinking();
+      try{
+        const r=await api('/api/chat',{session_id:sessionId,message:t});
+        if(r.response)hist.push({role:'ai',text:r.response});
+        $('turnPill').textContent=`Turno ${r.turn||0}`;renderHist();
+        if(r.finished){showFinished();return;}
+        if(audioEnabled)await speakKaraoke(r.response);
+        else{showComplete(r.response);setState('idle');}
+      }catch(e){showComplete('Erro.');setState('idle');}
+    }
+
+    // ─── Simple TTS (for greeting / keyboard — uses old endpoint) ───
+    async function speakKaraoke(text){
+      if(!audioEnabled||!text){showComplete(text);setState('idle');return;}
+      setState('speaking');
+      resetKaraokeState();
+      // Create a fake chunk for the karaoke engine
+      const fakeChunk={text:text,word_timings:null};
+      setupKaraokeForChunk(fakeChunk);
+      try{
+        const res=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,voice:'coral'})});
+        if(!res.ok){showComplete(text);setState('idle');return;}
+        const blob=await res.blob();const url=URL.createObjectURL(blob);
+        AP.src=url;
+        AP.onloadedmetadata=()=>{startChunkKaraoke(fakeChunk, AP.duration*1000)};
+        AP.onended=()=>{stopKaraoke();URL.revokeObjectURL(url);setState('idle')};
+        AP.onerror=()=>{stopKaraoke();showComplete(text);URL.revokeObjectURL(url);setState('idle')};
+        AP.play().catch(()=>{stopKaraoke();showComplete(text);setState('idle')});
+      }catch(e){stopKaraoke();showComplete(text);setState('idle');}
+    }
+
+    // ─── History / Mute / End ────────────────────────────────
+    function renderHist(){const s=hist.slice(0,-2);HS.innerHTML=s.map(m=>`<div class="history-msg ${m.role}">${trunc(m.text,120)}</div>`).join('');}
+
+    $('btnMute').addEventListener('click',()=>{
+      audioEnabled=!audioEnabled;
+      $('btnMute').innerHTML=audioEnabled
+        ?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>Áudio on'
+        :'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>Áudio off';
+      $('btnMute').classList.toggle('active',!audioEnabled);
+    });
+
+    $('btnEndSession').addEventListener('click',async()=>{
+      if(!confirm('Encerrar e salvar o perfil?'))return;
+      setState('thinking');showThinking();
+      try{
+        const r=await api('/api/finish',{session_id:sessionId});
+        if(r.response){hist.push({role:'ai',text:r.response});showComplete(r.response);}
+        if(r.finished)showFinished();else setState('idle');
+      }catch(e){showComplete('Erro ao finalizar.');setState('idle');}
+    });
+
+    function showFinished(){setState('idle');$('resultLink').href=`/resultado/${sessionId}`;$('finishedOverlay').classList.add('show');}
+    function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+    function trunc(s,n){return s.length>n?s.substring(0,n)+'...':s}
+    function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+    async function api(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(d.error||'Erro');return d;}
+  </script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fleway — Bench</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#050507;--surface:#0e0e12;--surface-2:#161619;--border:#1f1f25;--text:#e8e8ec;--dim:#6a6a75;--accent:#e8e8ec;--danger:#ef4444;--success:#22c55e}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:32px}
+    h1{font-size:24px;font-weight:600;margin-bottom:8px}h1 em{font-style:normal;color:var(--accent)}
+    .sub{color:var(--dim);font-size:14px;margin-bottom:32px}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:16px}
+    .card h2{font-size:16px;font-weight:600;margin-bottom:16px}
+    .btn{font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;padding:10px 20px;border-radius:10px;border:none;cursor:pointer;transition:all .2s}
+    .btn-accent{background:var(--accent);color:#000}.btn-accent:hover{filter:brightness(1.1)}.btn-accent:disabled{opacity:.4;cursor:not-allowed}
+    .btn-outline{background:transparent;color:var(--text);border:1px solid var(--border)}.btn-outline:hover{border-color:var(--accent)}
+    .btn-danger{background:var(--danger);color:white}
+    .result{font-family:'JetBrains Mono',monospace;font-size:13px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:12px;white-space:pre-wrap;line-height:1.6;max-height:400px;overflow-y:auto}
+    .row{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+    .separator{border:none;border-top:1px solid var(--border);margin:24px 0}
+    .rec-indicator{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--danger);animation:blink 1s infinite;margin-right:6px}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+    .timeline{display:flex;gap:2px;margin-top:12px;height:32px;border-radius:8px;overflow:hidden}
+    .timeline .seg{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#000;min-width:40px}
+    .seg.stt{background:#60a5fa}.seg.llm{background:var(--accent)}.seg.tts{background:#a78bfa}
+    .tl-legend{display:flex;gap:16px;margin-top:8px;font-size:12px;color:var(--dim)}
+    .tl-legend span::before{content:'';display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
+    .l-stt::before{background:#60a5fa}.l-llm::before{background:var(--accent)}.l-tts::before{background:#a78bfa}
+    .stream-text{font-size:18px;line-height:1.6;min-height:60px;padding:16px;background:var(--surface-2);border-radius:12px;margin-top:12px}
+    .chunk-badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:11px;padding:2px 8px;border-radius:6px;margin:2px;background:#a78bfa20;color:#a78bfa}
+    .hidden{display:none!important}
+    p.note{font-size:13px;color:var(--dim);margin-bottom:12px}
+  </style>
+</head>
+<body>
+  <h1>fleway — Benchmark v2</h1>
+  <p class="sub">Testa latência com TTS progressivo por sentença (novo pipeline)</p>
+
+  <div class="card">
+    <h2>⚡ APIs isoladas</h2>
+    <p class="note">LLM e TTS isolados, texto curto.</p>
+    <button class="btn btn-accent" id="btnApiBench">Rodar</button>
+    <div class="result hidden" id="apiResult"></div>
+  </div>
+
+  <div class="card">
+    <h2>🎙️ Pipeline Stream (STT → LLM stream → TTS por sentença)</h2>
+    <p class="note">Grava áudio e testa o novo pipeline com chunks paralelos.</p>
+    <div class="row">
+      <input type="email" id="benchEmail" placeholder="Email" style="flex:1;font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text)">
+      <button class="btn btn-outline" id="btnLogin">Login</button>
+    </div>
+    <div id="sessInfo" style="display:none;font-size:13px;color:var(--dim);margin-bottom:12px"></div>
+    <div class="row">
+      <button class="btn btn-danger" id="btnRec" disabled>🎤 Gravar</button>
+      <span id="recStatus" style="font-size:13px;color:var(--dim)">Faça login primeiro</span>
+    </div>
+    <div id="streamSection" class="hidden">
+      <hr class="separator">
+      <h2 style="font-size:14px;margin-bottom:4px">📡 Stream</h2>
+      <div class="stream-text" id="streamText"></div>
+      <div id="chunkList" style="margin-top:8px"></div>
+      <div id="timelineBox"></div>
+      <div class="result" id="pipeResult"></div>
+    </div>
+  </div>
+
+  <audio id="benchAudio" preload="none"></audio>
+
+  <script>
+    let sid=null,cid=null,recorder=null,chunks=[];
+    const $=id=>document.getElementById(id);
+
+    // API bench
+    $('btnApiBench').addEventListener('click',async()=>{
+      const b=$('btnApiBench');b.disabled=true;b.textContent='...';
+      const el=$('apiResult');el.classList.remove('hidden');el.textContent='Rodando...\n';
+      try{
+        const r=await fetch('/api/bench').then(r=>r.json());
+        el.textContent=`LLM (${r.llm.model}): ${r.llm.ms}ms — "${r.llm.response}"\nTTS: ${r.tts.ms}ms — ${r.tts.bytes} bytes\nTotal: ${r.llm.ms+r.tts.ms}ms`;
+      }catch(e){el.textContent='Erro: '+e.message}
+      b.disabled=false;b.textContent='Rodar';
+    });
+
+    // Login
+    $('btnLogin').addEventListener('click',async()=>{
+      const email=$('benchEmail').value.trim();if(!email)return;
+      try{
+        const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})}).then(r=>r.json());
+        cid=r.creator_id;
+        const s=await fetch('/api/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({creator_id:cid})}).then(r=>r.json());
+        sid=s.session_id;
+        $('sessInfo').style.display='block';$('sessInfo').textContent=`✅ Sessão: ${sid.substring(0,8)}...`;
+        $('btnRec').disabled=false;$('recStatus').textContent='Pronto';
+      }catch(e){alert(e.message)}
+    });
+
+    // Record
+    let isRec=false;
+    $('btnRec').addEventListener('click',()=>{if(!isRec)startRec();else stopRec()});
+
+    async function startRec(){
+      try{
+        const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+        const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':'audio/webm';
+        recorder=new MediaRecorder(stream,{mimeType:mime});chunks=[];
+        recorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data)};
+        recorder.onstop=()=>{stream.getTracks().forEach(t=>t.stop());runPipeline(new Blob(chunks,{type:mime}))};
+        recorder.start(250);isRec=true;
+        $('btnRec').textContent='⏹ Parar';
+        $('recStatus').innerHTML='<span class="rec-indicator"></span>Gravando...';
+      }catch(e){alert('Mic error')}
+    }
+    function stopRec(){if(recorder?.state!=='inactive')recorder.stop();isRec=false;$('btnRec').textContent='🎤 Gravar';$('recStatus').textContent='Processando...';}
+
+    // Pipeline
+    async function runPipeline(blob){
+      const sec=$('streamSection');sec.classList.remove('hidden');
+      const st=$('streamText'),cl=$('chunkList'),tl=$('timelineBox'),res=$('pipeResult');
+      st.textContent='';cl.innerHTML='';tl.innerHTML='';res.textContent='Processando...\n';
+
+      const fd=new FormData();fd.append('audio',blob,'rec.webm');fd.append('session_id',sid);
+
+      const t0=Date.now();
+      let sttMs=0,llmMs=0,firstToken=0;
+      let ttsChunks=[];
+      let fullText='';
+      let firstAudioAt=0;
+      let audioQ=[];
+
+      try{
+        const response=await fetch('/api/voice-stream',{method:'POST',body:fd});
+        const reader=response.body.getReader();
+        const decoder=new TextDecoder();
+        let buf='',evt=null;
+
+        while(true){
+          const{done,value}=await reader.read();
+          if(done)break;
+          buf+=decoder.decode(value,{stream:true});
+          const lines=buf.split('\n');buf=lines.pop();
+
+          for(const line of lines){
+            if(line.startsWith('event: ')){evt=line.substring(7);continue;}
+            if(!line.startsWith('data: ')||!evt)continue;
+            try{
+              const d=JSON.parse(line.substring(6));
+
+              if(evt==='transcription'){
+                sttMs=d.stt_ms;
+                res.textContent=`🎤 STT: "${d.text}" (${sttMs}ms)\n`;
+                $('recStatus').textContent=`Transcrito em ${sttMs}ms`;
+              }
+              else if(evt==='llm_delta'){
+                fullText+=d.delta;st.textContent=fullText;
+                if(!firstToken)firstToken=Date.now()-t0-sttMs;
+              }
+              else if(evt==='llm_done'){
+                llmMs=d.llm_ms;
+                res.textContent+=`🤖 LLM: ${llmMs}ms (TTFT: ${d.first_token_ms}ms) — ${d.total_chunks} chunks\n`;
+                firstToken=d.first_token_ms;
+              }
+              else if(evt==='tts_chunk'){
+                if(!firstAudioAt)firstAudioAt=Date.now()-t0;
+                ttsChunks.push(d);
+                cl.innerHTML+=`<span class="chunk-badge">#${d.index} "${d.text.substring(0,30)}..." ${d.tts_ms}ms</span> `;
+                res.textContent+=`🔊 Chunk #${d.index}: ${d.tts_ms}ms\n`;
+                // Queue for playback
+                audioQ.push(d.audio);
+              }
+              else if(evt==='done'){
+                const total=Date.now()-t0;
+                const avgTts=ttsChunks.length?Math.round(ttsChunks.reduce((s,c)=>s+c.tts_ms,0)/ttsChunks.length):0;
+                const maxTts=ttsChunks.length?Math.max(...ttsChunks.map(c=>c.tts_ms)):0;
+
+                res.textContent+=`\n═══ RESULTADO ═══\n`;
+                res.textContent+=`Total wall-clock: ${total}ms\n`;
+                res.textContent+=`STT: ${sttMs}ms\n`;
+                res.textContent+=`LLM: ${llmMs}ms (TTFT: ${firstToken}ms)\n`;
+                res.textContent+=`TTS: ${ttsChunks.length} chunks (avg ${avgTts}ms, max ${maxTts}ms)\n\n`;
+                res.textContent+=`⏱ Primeiro texto: ${sttMs+firstToken}ms\n`;
+                res.textContent+=`⏱ Primeiro áudio: ${firstAudioAt||'N/A'}ms\n`;
+                res.textContent+=`⏱ Antigo seria: ~${sttMs+llmMs+maxTts}ms (sequencial)\n`;
+                res.textContent+=`✅ Ganho percebido: ~${Math.round((1-((firstAudioAt||total)/(sttMs+llmMs+(maxTts||2500))))*100)}%\n`;
+
+                $('recStatus').textContent=`✅ Done ${total}ms`;
+
+                // Timeline
+                const t=sttMs+llmMs+(avgTts||1);
+                tl.innerHTML=`
+                  <div class="timeline">
+                    <div class="seg stt" style="flex:${sttMs}">${sttMs}ms</div>
+                    <div class="seg llm" style="flex:${llmMs}">${llmMs}ms</div>
+                    <div class="seg tts" style="flex:${avgTts||1}">${avgTts}ms</div>
+                  </div>
+                  <div class="tl-legend"><span class="l-stt">STT</span><span class="l-llm">LLM</span><span class="l-tts">TTS (avg chunk)</span></div>
+                `;
+
+                // Play first chunk
+                if(audioQ.length){
+                  playQ(audioQ);
+                }
+              }
+            }catch(e){}
+            evt=null;
+          }
+        }
+      }catch(e){res.textContent+='Erro: '+e.message}
+    }
+
+    function playQ(q){
+      if(!q.length)return;
+      const b64=q.shift();
+      const bin=atob(b64);const bytes=new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+      const blob=new Blob([bytes],{type:'audio/mpeg'});
+      const url=URL.createObjectURL(blob);
+      const a=$('benchAudio');a.src=url;
+      a.onended=()=>{URL.revokeObjectURL(url);playQ(q)};
+      a.play().catch(()=>playQ(q));
+    }
+  </script>
+</body>
+</html>

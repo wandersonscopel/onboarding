@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fleway — Live Voice</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#050507;--surface:#0e0e12;--surface-2:#161619;--border:#1f1f25;--text:#e8e8ec;--text-dim:#6a6a75;--text-ghost:#2a2a35;--accent:#e8e8ec;--accent-glow:#e8e8ec30;--danger:#ef4444;--success:#22c55e}
+    *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column}
+    
+    /* Login */
+    .screen{display:flex;align-items:center;justify-content:center;flex:1;padding:24px}
+    .login-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:48px 40px;max-width:400px;width:100%;text-align:center}
+    .logo-mark{width:52px;height:52px;background:var(--accent);border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:22px;color:#000;margin-bottom:20px}
+    .login-card h1{font-size:26px;font-weight:600;letter-spacing:-0.03em;margin-bottom:6px}
+    .login-card h1 em{font-style:normal;color:var(--accent)}
+    .login-card .subtitle{color:var(--text-dim);font-size:14px;line-height:1.6;margin-bottom:32px}
+    .login-card input{width:100%;font-family:'DM Sans',sans-serif;font-size:15px;padding:14px 18px;border-radius:12px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);margin-bottom:14px;transition:border-color .2s}
+    .login-card input:focus{outline:none;border-color:var(--accent)}
+    .login-card input::placeholder{color:var(--text-dim)}
+    .btn-primary{width:100%;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;padding:14px;border-radius:12px;border:none;background:var(--accent);color:#000;cursor:pointer;transition:filter .2s}
+    .btn-primary:hover{filter:brightness(1.1)}
+    .btn-primary:disabled{opacity:.4;cursor:not-allowed}
+
+    /* Voice screen */
+    .voice-screen{display:none;flex-direction:column;height:100vh;height:100dvh;position:relative;overflow:hidden}
+    .voice-header{position:absolute;top:0;left:0;right:0;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;z-index:10;background:linear-gradient(var(--bg),transparent)}
+    .voice-header .brand{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+    .voice-header .brand .dot{width:22px;height:22px;background:var(--accent);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#000}
+    .voice-header .brand em{font-style:normal;color:var(--accent)}
+    .pill{font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 10px;border-radius:16px;background:var(--surface-2);color:var(--text-dim);border:1px solid var(--border)}
+    .pill.live{color:var(--success);border-color:var(--success)}
+    .pill.live::before{content:'';display:inline-block;width:6px;height:6px;background:var(--success);border-radius:50%;margin-right:6px;animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    .btn-end{font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-dim);cursor:pointer;transition:all .2s}
+    .btn-end:hover{color:var(--danger);border-color:var(--danger)}
+
+    /* Center area */
+    .center-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 32px 20px;position:relative}
+    .transcript-box{width:100%;max-width:600px;text-align:center;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+    .transcript-text{font-size:24px;font-weight:400;line-height:1.55;color:var(--text);opacity:0;transform:translateY(8px);animation:fadeUp .4s ease forwards;text-align:center;max-width:580px}
+    @keyframes fadeUp{to{opacity:1;transform:translateY(0)}}
+    .transcript-text.ai{color:var(--accent);font-weight:500}
+    .transcript-text.dim{opacity:.3;font-size:16px;color:var(--text-dim)}
+    .listening-hint{color:var(--text-dim);font-size:14px;opacity:.5;margin-top:16px}
+
+    /* Orb */
+    .orb-zone{display:flex;flex-direction:column;align-items:center;padding:0 24px 40px;flex-shrink:0}
+    .status-text{font-size:13px;color:var(--text-dim);margin-bottom:18px;min-height:20px;text-align:center;transition:all .3s}
+    .orb-container{position:relative;width:120px;height:120px;margin-bottom:20px}
+    .orb-ring{position:absolute;inset:-8px;border-radius:50%;border:2px solid transparent;transition:all .5s}
+    .orb{width:120px;height:120px;border-radius:50%;background:var(--surface);border:2px solid var(--border);cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center;transition:all .4s;user-select:none}
+    .orb:active{transform:scale(.93)}
+
+    /* States */
+    body.state-idle .orb{border-color:var(--border)}
+    body.state-idle .orb:hover{border-color:var(--accent);box-shadow:0 0 30px var(--accent-glow)}
+    body.state-idle .status-text{color:var(--text-dim)}
+
+    body.state-connecting .orb{border-color:var(--accent);animation:orbPulse 2s infinite}
+    body.state-connecting .status-text{color:var(--accent)}
+
+    body.state-listening .orb{border-color:var(--success);box-shadow:0 0 30px rgba(34,197,94,.2)}
+    body.state-listening .orb-ring{border-color:rgba(34,197,94,.15);animation:ringExpand 3s infinite}
+    body.state-listening .status-text{color:var(--success)}
+
+    body.state-speaking .orb{border-color:var(--accent);box-shadow:0 0 35px var(--accent-glow)}
+    body.state-speaking .orb-ring{border-color:rgba(249,115,22,.15);animation:ringExpand 2s infinite}
+    body.state-speaking .status-text{color:var(--accent)}
+
+    @keyframes orbPulse{0%,100%{box-shadow:0 0 15px var(--accent-glow)}50%{box-shadow:0 0 40px var(--accent-glow)}}
+    @keyframes ringExpand{0%{transform:scale(1);opacity:.5}100%{transform:scale(1.5);opacity:0}}
+
+    /* Wave animation inside orb */
+    .wave-bars{display:flex;gap:3px;align-items:center;height:40px}
+    .wave-bars span{width:4px;background:var(--accent);border-radius:2px;transition:height .15s}
+    .wave-bars.listening span{background:var(--success)}
+    .orb-icon{transition:all .3s}
+    .orb-icon svg{display:block}
+
+    /* Bottom */
+    .bottom-actions{display:flex;gap:14px;align-items:center}
+    .bottom-btn{font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:10px 18px;border-radius:24px;border:1px solid var(--border);background:var(--surface-2);color:var(--text-dim);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px}
+    .bottom-btn:hover{border-color:var(--accent);color:var(--text)}
+    .bottom-btn.active{border-color:var(--danger);color:var(--danger)}
+    .bottom-btn svg{width:16px;height:16px}
+
+    @media(max-width:640px){.login-card{padding:36px 24px}.transcript-text{font-size:20px}.center-area{padding:70px 20px 10px}}
+  </style>
+</head>
+<body class="state-idle">
+
+  <div id="loginScreen" class="screen">
+    <div class="login-card">
+      <div class="logo-mark">V</div>
+      <h1>fleway</h1>
+      <p class="subtitle">Conversa ao vivo com IA.<br>Só falar — sem botões, sem espera.</p>
+      <input type="email" id="emailInput" placeholder="Seu email" autocomplete="email">
+      <button class="btn-primary" id="btnLogin">Entrar na ligação</button>
+    </div>
+  </div>
+
+  <div class="voice-screen" id="voiceScreen">
+    <div class="voice-header">
+      <div class="brand"><div class="dot">V</div> fleway</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="pill live" id="statusPill">Ao vivo</span>
+        <span class="pill" id="timerPill">00:00</span>
+        <button class="btn-end" id="btnEnd">Desligar</button>
+      </div>
+    </div>
+
+    <div class="center-area">
+      <div class="transcript-box" id="transcriptBox">
+        <div class="transcript-text dim">Conectando...</div>
+      </div>
+    </div>
+
+    <div class="orb-zone">
+      <div class="status-text" id="statusText">Conectando...</div>
+      <div class="orb-container">
+        <div class="orb-ring"></div>
+        <div class="orb" id="orbBtn">
+          <div class="orb-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></div>
+          <div class="wave-bars" style="display:none"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+        </div>
+      </div>
+      <div class="bottom-actions">
+        <button class="bottom-btn" id="btnMute"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>Mutar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // ═══════════════════════════════════════════════════════════
+  // Fleway Live Voice — Gemini Live API (WebSocket direct)
+  // ═══════════════════════════════════════════════════════════
+
+  const GEMINI_MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
+  const WS_URL_BETA = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
+  const WS_URL_ALPHA = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent';
+
+  let ws = null;
+  let audioCtx = null;
+  let mediaStream = null;
+  let scriptProcessor = null;
+  let sessionActive = false;
+  let muted = false;
+  let timerInterval = null;
+  let startTime = null;
+
+  // Audio playback queue
+  let playbackQueue = [];
+  let isPlayingAudio = false;
+  let currentSource = null;
+
+  const $=id=>document.getElementById(id);
+
+  // ─── Login ───────────────────────────────────────────────
+  $('btnLogin').addEventListener('click', doLogin);
+  $('emailInput').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+  async function doLogin() {
+    const email = $('emailInput').value.trim();
+    if (!email) return;
+    $('btnLogin').disabled = true;
+    $('btnLogin').textContent = 'Conectando...';
+
+    try {
+      // Get ephemeral token from server
+      const res = await fetch('/api/live-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao obter token');
+
+      console.log('Token type:', data.isEphemeral ? 'ephemeral' : 'api_key');
+      console.log('Token preview:', data.token.substring(0, 20) + '...');
+
+      $('loginScreen').style.display = 'none';
+      $('voiceScreen').style.display = 'flex';
+      setState('connecting');
+
+      await connectLive(data.token, data.systemInstruction, data.isEphemeral);
+    } catch (e) {
+      alert('Erro: ' + e.message);
+      $('btnLogin').disabled = false;
+      $('btnLogin').textContent = 'Entrar na ligação';
+    }
+  }
+
+  // ─── WebSocket Connection ──────────────────────────────
+  async function connectLive(token, systemInstruction, isEphemeral) {
+    // Setup AudioContext
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+
+    // Connect WebSocket — ephemeral tokens need v1alpha, API keys use v1beta
+    const baseUrl = isEphemeral ? WS_URL_ALPHA : WS_URL_BETA;
+    const param = isEphemeral ? 'access_token' : 'key';
+    const url = `${baseUrl}?${param}=${token}`;
+    console.log('Connecting to:', baseUrl + '?' + param + '=***');
+    ws = new WebSocket(url);
+    ws.binaryType = 'arraybuffer';
+
+    ws.onopen = () => {
+      console.log('🟢 WebSocket connected');
+      // Send setup message
+      const setupMsg = {
+        setup: {
+          model: `models/${GEMINI_MODEL}`,
+          generationConfig: {
+            responseModalities: ['AUDIO'],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName: 'Aoede'
+                }
+              }
+            },
+            thinkingConfig: {
+              thinkingBudget: 0  // Disable thinking to avoid leaked thoughts as text
+            }
+          },
+          outputAudioTranscription: {},  // Get text transcription of audio output
+          systemInstruction: {
+            parts: [{ text: systemInstruction }]
+          }
+        }
+      };
+      console.log('📤 Sending setup:', JSON.stringify(setupMsg).substring(0, 200) + '...');
+      ws.send(JSON.stringify(setupMsg));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        let msg;
+        if (typeof event.data === 'string') {
+          msg = JSON.parse(event.data);
+        } else if (event.data instanceof Blob) {
+          // Some messages may come as Blob, read as text
+          event.data.text().then(text => {
+            try {
+              const m = JSON.parse(text);
+              console.log('📥 (blob):', Object.keys(m));
+              handleServerMessage(m);
+            } catch(e) { console.log('📥 binary blob, size:', event.data.size); }
+          });
+          return;
+        } else if (event.data instanceof ArrayBuffer) {
+          const text = new TextDecoder().decode(event.data);
+          try { msg = JSON.parse(text); } catch(e) {
+            console.log('📥 binary arraybuffer, size:', event.data.byteLength);
+            return;
+          }
+        }
+        if (msg) {
+          console.log('📥', Object.keys(msg));
+          handleServerMessage(msg);
+        }
+      } catch(e) {
+        console.error('Message parse error:', e);
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error('WebSocket error:', err);
+      showTranscript('Erro de conexão.', 'ai');
+      setState('idle');
+    };
+
+    ws.onclose = (event) => {
+      console.log('🔴 WebSocket closed:', event.code, event.reason);
+      sessionActive = false;
+      stopTimer();
+      if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); }
+      setState('idle');
+    };
+  }
+
+  function handleServerMessage(msg) {
+    // Setup complete
+    if (msg.setupComplete) {
+      console.log('✅ Session setup complete');
+      sessionActive = true;
+      startMicrophone();
+      startTimer();
+      setState('listening');
+      showTranscript('Estou ouvindo. Pode falar!', 'ai');
+      
+      // Send initial text to trigger greeting
+      ws.send(JSON.stringify({
+        clientContent: {
+          turns: [{ role: 'user', parts: [{ text: 'Comece a entrevista. Se apresente brevemente e faça a primeira pergunta.' }] }],
+          turnComplete: true
+        }
+      }));
+    }
+
+    // Server content (audio/text responses)
+    if (msg.serverContent) {
+      const sc = msg.serverContent;
+      
+      // Model turn — audio chunks and/or text
+      if (sc.modelTurn) {
+        const parts = sc.modelTurn.parts || [];
+        for (const part of parts) {
+          // Audio data
+          if (part.inlineData && part.inlineData.mimeType?.includes('audio')) {
+            setState('speaking');
+            const audioBytes = base64ToArrayBuffer(part.inlineData.data);
+            queueAudio(audioBytes);
+          }
+          // Text from model — filter out thinking/reasoning artifacts
+          if (part.text) {
+            const text = part.text.trim();
+            // Skip thinking artifacts (lines with ** markers or internal reasoning)
+            if (text.startsWith('**') || text.includes('I\'m ') && text.includes('focus')) {
+              console.log('🧠 Thinking (filtered):', text.substring(0, 80));
+            } else if (text.length > 0) {
+              showTranscript(text, 'ai');
+            }
+          }
+        }
+      }
+
+      // Output audio transcription (actual spoken text)
+      if (sc.outputTranscription) {
+        const text = sc.outputTranscription.text || '';
+        if (text.trim()) {
+          console.log('🗣️ AI said:', text.substring(0, 100));
+          showTranscript(text, 'ai');
+        }
+      }
+
+      // Input transcription (what user said)
+      if (sc.inputTranscription) {
+        const text = sc.inputTranscription.text || '';
+        if (text.trim()) {
+          console.log('👤 User said:', text.substring(0, 100));
+          showTranscript(text, 'user');
+        }
+      }
+
+      // Turn complete — model finished speaking
+      if (sc.turnComplete) {
+        console.log('🔄 Turn complete');
+        if (playbackQueue.length === 0 && !isPlayingAudio) {
+          setState('listening');
+        }
+      }
+    }
+
+    // Tool calls (future)
+    if (msg.toolCall) {
+      console.log('🔧 Tool call:', msg.toolCall);
+    }
+  }
+
+  // ─── Microphone Capture ────────────────────────────────
+  async function startMicrophone() {
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: { 
+          sampleRate: 16000, 
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+
+      const micCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+      const source = micCtx.createMediaStreamSource(mediaStream);
+      
+      // Use ScriptProcessor for PCM data (works across browsers)
+      const bufSize = 4096;
+      scriptProcessor = micCtx.createScriptProcessor(bufSize, 1, 1);
+      
+      scriptProcessor.onaudioprocess = (e) => {
+        if (!sessionActive || muted || !ws || ws.readyState !== WebSocket.OPEN) return;
+        
+        const float32 = e.inputBuffer.getChannelData(0);
+        const int16 = float32ToInt16(float32);
+        const b64 = arrayBufferToBase64(int16.buffer);
+
+        // Send audio as realtimeInput
+        ws.send(JSON.stringify({
+          realtimeInput: {
+            mediaChunks: [{
+              mimeType: 'audio/pcm;rate=16000',
+              data: b64
+            }]
+          }
+        }));
+
+        // Update wave visualization
+        updateWaveViz(float32);
+      };
+
+      source.connect(scriptProcessor);
+      scriptProcessor.connect(micCtx.destination); // Required for processing
+      
+      console.log('🎤 Microphone active');
+    } catch (e) {
+      console.error('Mic error:', e);
+      showTranscript('Sem acesso ao microfone.', 'ai');
+    }
+  }
+
+  // ─── Audio Playback ────────────────────────────────────
+  function queueAudio(pcmData) {
+    playbackQueue.push(pcmData);
+    if (!isPlayingAudio) playNext();
+  }
+
+  function playNext() {
+    if (playbackQueue.length === 0) {
+      isPlayingAudio = false;
+      if (sessionActive) setState('listening');
+      return;
+    }
+
+    isPlayingAudio = true;
+    const pcmData = playbackQueue.shift();
+    
+    // Convert PCM16 to Float32 for Web Audio
+    const int16 = new Int16Array(pcmData);
+    const float32 = new Float32Array(int16.length);
+    for (let i = 0; i < int16.length; i++) {
+      float32[i] = int16[i] / 32768.0;
+    }
+
+    const buffer = audioCtx.createBuffer(1, float32.length, 24000);
+    buffer.getChannelData(0).set(float32);
+
+    currentSource = audioCtx.createBufferSource();
+    currentSource.buffer = buffer;
+    currentSource.connect(audioCtx.destination);
+    currentSource.onended = () => playNext();
+    currentSource.start();
+  }
+
+  function stopPlayback() {
+    playbackQueue = [];
+    isPlayingAudio = false;
+    if (currentSource) {
+      try { currentSource.stop(); } catch(e) {}
+      currentSource = null;
+    }
+  }
+
+  // ─── UI State ──────────────────────────────────────────
+  function setState(s) {
+    document.body.className = `state-${s}`;
+    const wb = $('orbBtn').querySelector('.wave-bars');
+    const icon = $('orbBtn').querySelector('.orb-icon');
+    
+    if (s === 'listening') {
+      $('statusText').textContent = 'Ouvindo...';
+      wb.style.display = 'flex';
+      wb.className = 'wave-bars listening';
+      icon.style.display = 'none';
+    } else if (s === 'speaking') {
+      $('statusText').textContent = 'Falando...';
+      wb.style.display = 'flex';
+      wb.className = 'wave-bars';
+      icon.style.display = 'none';
+    } else if (s === 'connecting') {
+      $('statusText').textContent = 'Conectando...';
+      wb.style.display = 'none';
+      icon.style.display = 'block';
+    } else {
+      $('statusText').textContent = 'Desconectado';
+      wb.style.display = 'none';
+      icon.style.display = 'block';
+    }
+  }
+
+  const transcriptHistory = [];
+  function showTranscript(text, role) {
+    if (!text?.trim()) return;
+    transcriptHistory.push({ text: text.trim(), role });
+    
+    const box = $('transcriptBox');
+    // Show last 3 messages
+    const recent = transcriptHistory.slice(-3);
+    box.innerHTML = recent.map((m, i) => {
+      const isLast = i === recent.length - 1;
+      const cls = m.role === 'ai' ? 'ai' : '';
+      const dim = !isLast ? 'dim' : '';
+      return `<div class="transcript-text ${cls} ${dim}" style="${isLast ? '' : 'animation:none;opacity:.3;transform:none'}">${esc(m.text)}</div>`;
+    }).join('');
+  }
+
+  // ─── Mute / End ────────────────────────────────────────
+  $('btnMute').addEventListener('click', () => {
+    muted = !muted;
+    $('btnMute').innerHTML = muted
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .19 0 .38-.03.56"/></svg>Desmutar'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>Mutar';
+    $('btnMute').classList.toggle('active', muted);
+  });
+
+  $('btnEnd').addEventListener('click', () => {
+    if (!confirm('Encerrar a conversa?')) return;
+    stopPlayback();
+    if (ws) ws.close();
+    if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+    sessionActive = false;
+    stopTimer();
+    setState('idle');
+    showTranscript('Conversa encerrada.', 'ai');
+    $('statusPill').className = 'pill';
+    $('statusPill').textContent = 'Encerrada';
+  });
+
+  // Orb click — interrupt or nothing
+  $('orbBtn').addEventListener('click', () => {
+    if (document.body.className.includes('speaking')) {
+      // Interrupt: stop playback, model will hear silence and continue listening
+      stopPlayback();
+      setState('listening');
+    }
+  });
+
+  // ─── Timer ─────────────────────────────────────────────
+  function startTimer() {
+    startTime = Date.now();
+    timerInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+      const s = String(elapsed % 60).padStart(2, '0');
+      $('timerPill').textContent = `${m}:${s}`;
+    }, 1000);
+  }
+  function stopTimer() { if (timerInterval) clearInterval(timerInterval); }
+
+  // ─── Wave Visualization ────────────────────────────────
+  function updateWaveViz(float32) {
+    const bars = document.querySelectorAll('.wave-bars span');
+    if (!bars.length) return;
+    
+    // Compute RMS energy
+    let sum = 0;
+    for (let i = 0; i < float32.length; i++) sum += float32[i] * float32[i];
+    const rms = Math.sqrt(sum / float32.length);
+    const level = Math.min(rms * 8, 1); // normalize
+
+    bars.forEach((bar, i) => {
+      const offset = Math.sin(Date.now() / 200 + i * 0.7) * 0.3 + 0.7;
+      const h = Math.max(4, level * 36 * offset);
+      bar.style.height = h + 'px';
+    });
+  }
+
+  // ─── Utilities ─────────────────────────────────────────
+  function float32ToInt16(float32) {
+    const int16 = new Int16Array(float32.length);
+    for (let i = 0; i < float32.length; i++) {
+      const s = Math.max(-1, Math.min(1, float32[i]));
+      int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    return int16;
+  }
+
+  function base64ToArrayBuffer(base64) {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  }
+
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  </script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+node_modules/
+.env
+perfis/
+uploads/
+usage.log

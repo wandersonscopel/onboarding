@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fleway — Diagnóstico</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+  <style>
+    :root{--bg:#0a0a0b;--surface:#141416;--surface-2:#1c1c20;--border:#2a2a30;--text:#e8e8ec;--text-muted:#7a7a85;--accent:#e8e8ec;--accent-dim:#e8e8ec15;--radius:12px}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+    /* Header */
+    .top-bar{position:sticky;top:0;z-index:10;background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between}
+    .logo{display:flex;align-items:center;gap:10px}
+    .logo-icon{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#000}
+    .logo span{font-size:16px;font-weight:600}.logo span em{color:var(--accent);font-style:normal}
+    .top-right{display:flex;align-items:center;gap:12px}
+    .pill{font-family:'JetBrains Mono',monospace;font-size:11px;padding:4px 10px;border-radius:20px;background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border)}
+    .btn-regen{font-family:'DM Sans',sans-serif;font-size:12px;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer;transition:all .2s}
+    .btn-regen:hover{color:var(--accent);border-color:var(--accent)}
+
+    /* Completude mini-bar */
+    .completude-bar{max-width:860px;margin:24px auto 0;padding:0 24px}
+    .completude-inner{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;display:flex;align-items:center;gap:16px}
+    .completude-pct{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--accent);min-width:52px}
+    .bar-wrap{flex:1}
+    .bar-bg{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden}
+    .bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .8s ease}
+    .bar-meta{font-size:11px;color:var(--text-muted);margin-top:4px;font-family:'JetBrains Mono',monospace}
+
+    /* Report container */
+    .report-wrap{max-width:860px;margin:0 auto;padding:32px 24px 80px}
+
+    /* Loading state */
+    .loading{text-align:center;padding:80px 0}
+    .loading-spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading p{color:var(--text-muted);font-size:14px}
+    .loading .sub{font-size:12px;margin-top:4px;color:var(--border)}
+
+    /* Markdown rendered content */
+    .report{line-height:1.75;font-size:15px}
+    .report h1{font-size:24px;font-weight:700;margin:32px 0 16px;padding-bottom:10px;border-bottom:2px solid var(--accent);color:var(--text);letter-spacing:-0.02em}
+    .report h2{font-size:19px;font-weight:600;margin:28px 0 12px;color:var(--accent);letter-spacing:-0.01em}
+    .report h3{font-size:16px;font-weight:600;margin:20px 0 8px;color:var(--text)}
+    .report p{margin:0 0 14px;color:var(--text)}
+    .report strong{color:var(--text);font-weight:600}
+    .report em{color:var(--text-muted);font-style:italic}
+    .report blockquote{border-left:3px solid var(--accent);padding:10px 16px;margin:12px 0;background:var(--accent-dim);border-radius:0 8px 8px 0;font-size:14px;color:var(--text-muted)}
+    .report blockquote strong{color:var(--accent)}
+    .report ul,.report ol{margin:0 0 14px;padding-left:24px}
+    .report li{margin-bottom:6px;color:var(--text)}
+    .report code{font-family:'JetBrains Mono',monospace;font-size:13px;background:var(--surface-2);padding:2px 6px;border-radius:4px;color:var(--accent)}
+    .report pre{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:12px 0;overflow-x:auto}
+    .report pre code{background:none;padding:0;font-size:13px;color:var(--text)}
+    .report hr{border:none;border-top:1px solid var(--border);margin:28px 0}
+    .report a{color:var(--accent);text-decoration:none}.report a:hover{text-decoration:underline}
+    .report table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+    .report th,.report td{padding:8px 12px;border:1px solid var(--border);text-align:left}
+    .report th{background:var(--surface-2);color:var(--accent);font-weight:600}
+
+    .error{text-align:center;padding:80px 0;color:#ef4444;font-size:16px}
+
+    @media(max-width:640px){.report-wrap{padding:20px 16px 60px}.report h1{font-size:20px}.report h2{font-size:17px}.completude-bar{padding:0 16px}}
+  </style>
+</head>
+<body>
+
+  <div class="top-bar">
+    <div class="logo"><svg width="22" height="19" viewBox="0 0 52 44" fill="none"><path d="M0 22L20 8L26 22L20 36Z" fill="#e8e8ec"/><path d="M26 22L20 8L52 4Z" fill="#e8e8ec"/><path d="M26 22L20 36L44 40Z" fill="#e8e8ec" opacity="0.45"/></svg><span>fleway — Diagnóstico</span></div>
+    <div class="top-right">
+      <span class="pill" id="costPill"></span>
+      <button class="btn-regen" id="btnRegen" style="display:none" onclick="regenerate()">↻ Regenerar</button>
+    </div>
+  </div>
+
+  <div class="completude-bar" id="completudeBar" style="display:none">
+    <div class="completude-inner">
+      <span class="completude-pct" id="pctVal">0%</span>
+      <div class="bar-wrap">
+        <div class="bar-bg"><div class="bar-fill" id="barFill" style="width:0%"></div></div>
+        <div class="bar-meta" id="barMeta"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="report-wrap">
+    <div id="content">
+      <div class="loading">
+        <div class="loading-spinner"></div>
+        <p>Gerando seu diagnóstico de posicionamento...</p>
+        <p class="sub">Isso leva ~30 segundos</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const sessionId = window.location.pathname.split("/resultado/")[1];
+    if (!sessionId) { showError("ID não encontrado"); }
+    else { init(); }
+
+    async function init() {
+      try {
+        // 1. Load session data
+        const r = await fetch(`/api/result/${sessionId}`);
+        if (!r.ok) throw new Error("Perfil não encontrado");
+        const data = await r.json();
+        if (!data.profile) throw new Error("Perfil ainda não finalizado");
+
+        // Show completude bar
+        showCompletude(data);
+
+        // 2. Check if report already exists
+        if (data.report_md) {
+          renderReport(data.report_md);
+          document.getElementById("costPill").textContent = "cache";
+          document.getElementById("btnRegen").style.display = "";
+          return;
+        }
+
+        // 3. Generate report
+        await generateReport();
+
+      } catch(e) { showError(e.message); }
+    }
+
+    async function generateReport() {
+      document.getElementById("content").innerHTML = `
+        <div class="loading">
+          <div class="loading-spinner"></div>
+          <p>Gerando seu diagnóstico de posicionamento...</p>
+          <p class="sub">Isso leva ~30 segundos</p>
+        </div>`;
+
+      try {
+        const r = await fetch(`/api/generate-report/${sessionId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({})
+        });
+        if (!r.ok) { const e = await r.json(); throw new Error(e.error || "Erro"); }
+        const data = await r.json();
+        renderReport(data.report_md);
+        document.getElementById("costPill").textContent = data.cached ? "cache" : (data.cost || "");
+        document.getElementById("btnRegen").style.display = "";
+      } catch(e) { showError("Erro ao gerar relatório: " + e.message); }
+    }
+
+    async function regenerate() {
+      if (!confirm("Regenerar o relatório? O anterior será substituído.")) return;
+      document.getElementById("btnRegen").style.display = "none";
+      try {
+        const r = await fetch(`/api/generate-report/${sessionId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ force: true })
+        });
+        if (!r.ok) { const e = await r.json(); throw new Error(e.error); }
+        const data = await r.json();
+        renderReport(data.report_md);
+        document.getElementById("costPill").textContent = data.cost || "";
+        document.getElementById("btnRegen").style.display = "";
+      } catch(e) { showError("Erro: " + e.message); }
+    }
+
+    function renderReport(md) {
+      marked.setOptions({ breaks: true, gfm: true });
+      document.getElementById("content").innerHTML = `<div class="report">${marked.parse(md)}</div>`;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function showCompletude(data) {
+      const m = data.profile?.metadata || {};
+      const pct = Math.round((m.completude_estimada || data.completude || 0) * 100);
+      document.getElementById("completudeBar").style.display = "";
+      document.getElementById("pctVal").textContent = pct + "%";
+      document.getElementById("barFill").style.width = pct + "%";
+      document.getElementById("barMeta").textContent = `${m.campos_preenchidos||'?'}/${m.campos_total||'?'} campos · ${m.turnos_realizados||data.turn_count||'?'} turnos · ${m.modelo_usado||data.model||''}`;
+    }
+
+    function showError(msg) {
+      document.getElementById("content").innerHTML = `<div class="error">${msg}</div>`;
+    }
+  </script>
+</body>
+</html>
